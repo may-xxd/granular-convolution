@@ -1,16 +1,15 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.20)
 
 PROJECT(granular-convolution)
 
 set (BUILD_SHARED OFF FORCE)
 set (BUILD_STATIC ON FORCE)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
 file(GLOB SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
 add_executable(granular-convolution ${SOURCES})
-
-set_property(TARGET granular-convolution PROPERTY CXX_STANDARD 17)
 
 # Enable all warnings
 if (MSVC)
