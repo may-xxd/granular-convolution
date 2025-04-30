@@ -2,3 +2,4 @@ build/
 .cache/
 res/
 compile_commands.json
+*.wav

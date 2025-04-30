@@ -9,6 +9,7 @@ struct Signal {
   std::vector<std::vector<float>> data;
   Signal slice(size_t start, size_t size) const;
   Signal convolve(const Signal &other) const;
+  void append(const Signal &other);
 
   void write_to_wave(std::ostream &ostream) const;
 

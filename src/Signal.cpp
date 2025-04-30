@@ -16,12 +16,14 @@ Signal Signal::slice(size_t start, size_t size) const {
       continue;
     }
 
-    if (start + size >= data.size()) {
-      size = data.size() - start;
+    std::cout << "size before: " << size << std::endl;
+
+    if (start + size >= channel.size()) {
+      size = channel.size() - start;
     }
 
     ret.data.back() =
-        std::vector<float>(channel.begin(), channel.begin() + size);
+        std::vector<float>(channel.begin() + start, channel.begin() + size + start);
   }
 
   return ret;
@@ -61,6 +63,21 @@ Signal Signal::convolve(const Signal &other) const {
   }
 
   return ret;
+}
+
+void Signal::append(const Signal &other) {
+  if (other.data.size() != data.size()) {
+    std::cerr << "Unable to append signal, signals differ in number of "
+                 "channels ("
+              << data.size() << " and " << other.data.size() << ")"
+              << std::endl;
+    return;
+  }
+
+  for (size_t ii = 0; ii < data.size(); ii++) {
+    data[ii].insert(data[ii].end(), other.data[ii].begin(),
+                    other.data[ii].end());
+  }
 }
 
 void Signal::write_to_wave(std::ostream &ostream) const {

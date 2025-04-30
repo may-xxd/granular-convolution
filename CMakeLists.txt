@@ -18,6 +18,6 @@ target_include_directories(granular-convolution PRIVATE ${PROJECT_SOURCE_DIR}/de
 if (MSVC)
   target_compile_options(granular-convolution PRIVATE /W4 /WX)
 else()
-  target_compile_options(granular-convolution PRIVATE -Wall -Wextra -pedantic -Werror -Wno-missing-braces -Wno-unused-function)
+  target_compile_options(granular-convolution PRIVATE -Wall -Wextra -pedantic -Werror -Wno-missing-braces -Wno-unused-function -g)
 endif()
 
