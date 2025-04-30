@@ -1,8 +1,113 @@
 #include "Signal.hpp"
+#include "FFTConvolver.h"
 #include "Util.hpp"
 #include <iostream>
 
 static constexpr uint16_t FORMAT_TAG_WAVE_FORMAT_PCM = 0x0001;
+
+Signal Signal::slice(size_t start, size_t size) const {
+  Signal ret;
+  ret.sample_rate = sample_rate;
+
+  for (const auto &channel : data) {
+    ret.data.push_back(std::vector<float>());
+
+    if (start >= channel.size()) {
+      continue;
+    }
+
+    if (start + size >= data.size()) {
+      size = data.size() - start;
+    }
+
+    ret.data.back() =
+        std::vector<float>(channel.begin(), channel.begin() + size);
+  }
+
+  return ret;
+}
+
+Signal Signal::convolve(const Signal &other) const {
+  Signal ret;
+  ret.sample_rate = sample_rate;
+
+  if (other.data.size() != data.size()) {
+    std::cerr << "Unable to compute convolution, signals differ in number of "
+                 "channels ("
+              << data.size() << " and " << other.data.size() << ")"
+              << std::endl;
+    return ret;
+  }
+
+  for (size_t channel_ii = 0; channel_ii < data.size(); channel_ii++) {
+    const std::vector<float> &channel = data[channel_ii];
+    const std::vector<float> &other_channel = other.data[channel_ii];
+
+    fftconvolver::FFTConvolver convolver;
+    convolver.init(1024, channel.data(), channel.size());
+    ret.data.push_back(std::vector<float>(other_channel.size()));
+    convolver.process(other_channel.data(), ret.data.back().data(),
+                      other_channel.size());
+
+    float max = 0;
+    for (size_t ii = 0; ii < ret.data.back().size(); ii++) {
+      if (ret.data.back()[ii] > max) {
+        max = ret.data.back()[ii];
+      }
+    }
+    for (size_t ii = 0; ii < ret.data.back().size(); ii++) {
+      ret.data.back()[ii] /= max;
+    }
+  }
+
+  return ret;
+}
+
+void Signal::write_to_wave(std::ostream &ostream) const {
+  // TODO: verify
+  ostream.write("RIFF", 4);
+
+  uint32_t file_size = 36 + data.size() * data[0].size() * 2;
+  Util::write_u32_le(ostream, file_size);
+
+  ostream.write("WAVE", 4);
+
+  ostream.write("fmt ", 4);
+
+  // chunk size
+  Util::write_u32_le(ostream, 16);
+
+  Util::write_u16_le(ostream, FORMAT_TAG_WAVE_FORMAT_PCM);
+  // num channels
+  Util::write_u16_le(ostream, data.size());
+  // sample rate
+  Util::write_u32_le(ostream, sample_rate);
+  // byte rate
+  Util::write_u32_le(ostream, sample_rate * 2 * data.size());
+  // block size
+  Util::write_u16_le(ostream, 2 * data.size());
+  // bits per sample
+  Util::write_u16_le(ostream, 16);
+
+  ostream.write("data", 4);
+
+  // chunk size
+  Util::write_u32_le(ostream, data.size() * data[0].size() * 2);
+
+  for (size_t sample_ii = 0; sample_ii < data[0].size(); sample_ii++) {
+    for (size_t channel_ii = 0; channel_ii < data.size(); channel_ii++) {
+      float sample_f = data[channel_ii][sample_ii];
+      if (sample_f > 1.0f) {
+        sample_f = 1.0f;
+      }
+      if (sample_f < -1.0f) {
+        sample_f = -1.0f;
+      }
+      int16_t sample = static_cast<int16_t>(sample_f * 32768);
+      Util::write_i16_le(ostream, sample);
+    }
+  }
+}
 
 std::optional<Signal> Signal::parse_from_wave(std::istream &wave_stream) {
   Signal ret;
@@ -56,7 +161,11 @@ std::optional<Signal> Signal::parse_from_wave(std::istream &wave_stream) {
 
       ret.sample_rate = sample_rate;
       for (uint32_t channel = 0; channel < num_channels; channel++) {
-        ret.data.push_back(std::vector<int16_t>());
+        ret.data.push_back(std::vector<float>());
+      }
+
+      if (chunk_size > 16) {
+        wave_stream.ignore(chunk_size - 16);
       }
     } else if (chunk_id[0] == 'd' && chunk_id[1] == 'a' && chunk_id[2] == 't' &&
                chunk_id[3] == 'a') {
@@ -64,13 +173,20 @@ std::optional<Signal> Signal::parse_from_wave(std::istream &wave_stream) {
       uint32_t data_remaining = chunk_size;
       while (data_remaining) {
         // for each channel
-        for (std::vector<int16_t> &channel : ret.data) {
-          if (*bits_per_sample != 16) {
-            std::cerr << "Unable to parse non 16-bit PCM data" << std::endl;
-            return std::nullopt;
+        for (std::vector<float> &channel : ret.data) {
+          if (*bits_per_sample == 32) {
+            data_remaining -= 4;
+            channel.push_back(
+                static_cast<float>(Util::read_i32_le(wave_stream)) /
+                static_cast<float>(2147493647.f));
+          } else if (*bits_per_sample == 16) {
+            data_remaining -= 2;
+            channel.push_back(
+                static_cast<float>(Util::read_i16_le(wave_stream)) / 32768.0f);
+          } else {
+            std::cerr << "Unable to handle PCM WAVE data with bit depth "
+                      << *bits_per_sample << std::endl;
           }
-          data_remaining -= 2;
-          channel.push_back(Util::read_i16_le(wave_stream));
         }
       }
     } else {

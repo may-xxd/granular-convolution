@@ -8,8 +8,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
 file(GLOB SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB DEPS_SOURCES ${PROJECT_SOURCE_DIR}/deps/FFTConvolver/*.cpp)
 
-add_executable(granular-convolution ${SOURCES})
+add_executable(granular-convolution ${SOURCES} ${DEPS_SOURCES})
+
+target_include_directories(granular-convolution PRIVATE ${PROJECT_SOURCE_DIR}/deps/FFTConvolver)
 
 # Enable all warnings
 if (MSVC)
