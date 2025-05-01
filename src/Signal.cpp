@@ -5,28 +5,35 @@
 
 static constexpr uint16_t FORMAT_TAG_WAVE_FORMAT_PCM = 0x0001;
 
-Signal Signal::slice(size_t start, size_t size) const {
+Signal Signal::slice(float start, float size) const {
   Signal ret;
   ret.sample_rate = sample_rate;
+
+  size_t start_samples = start * sample_rate;
+  size_t size_samples = size * sample_rate;
 
   for (const auto &channel : data) {
     ret.data.push_back(std::vector<float>());
 
-    if (start >= channel.size()) {
+    if (start_samples >= channel.size()) {
       continue;
     }
 
-    std::cout << "size before: " << size << std::endl;
-
-    if (start + size >= channel.size()) {
-      size = channel.size() - start;
+    if (start_samples + size_samples >= channel.size()) {
+      size_samples = channel.size() - start_samples;
     }
 
     ret.data.back() =
-        std::vector<float>(channel.begin() + start, channel.begin() + size + start);
+        std::vector<float>(channel.begin() + start_samples,
+                           channel.begin() + size_samples + start_samples);
   }
 
   return ret;
+}
+
+float Signal::get_length() const
+{
+  return static_cast<float>(data[0].size()) / sample_rate;
 }
 
 Signal Signal::convolve(const Signal &other) const {
@@ -74,9 +81,44 @@ void Signal::append(const Signal &other) {
     return;
   }
 
-  for (size_t ii = 0; ii < data.size(); ii++) {
-    data[ii].insert(data[ii].end(), other.data[ii].begin(),
-                    other.data[ii].end());
+  for (size_t channel_ii = 0; channel_ii < data.size(); channel_ii++) {
+    data[channel_ii].insert(data[channel_ii].end(),
+                            other.data[channel_ii].begin(),
+                            other.data[channel_ii].end());
+  }
+}
+
+void Signal::append_crossfade(const Signal &other, float crossfade_time) {
+  if (other.data.size() != data.size()) {
+    std::cerr << "Unable to append signal, signals differ in number of "
+                 "channels ("
+              << data.size() << " and " << other.data.size() << ")"
+              << std::endl;
+    return;
+  }
+
+  size_t crossfade_size_samples = crossfade_time * sample_rate;
+
+  for (size_t ii = 0; ii < crossfade_size_samples; ii++) {
+    float crossfade_factor =
+        static_cast<float>(ii) / static_cast<float>(crossfade_size_samples);
+    for (size_t channel_ii = 0; channel_ii < data.size(); channel_ii++) {
+      std::vector<float> &channel = data[channel_ii];
+      const std::vector<float> &other_channel = other.data[channel_ii];
+      if (ii < channel.size() && ii < other_channel.size()) {
+        channel[channel.size() - ii - 1] =
+            (1.0 - crossfade_factor) *
+                channel[channel.size() - crossfade_size_samples + ii] +
+            crossfade_factor * other_channel[ii];
+      }
+    }
+  }
+
+  for (size_t channel_ii = 0; channel_ii < data.size(); channel_ii++) {
+    data[channel_ii].insert(data[channel_ii].end(),
+                            other.data[channel_ii].begin() +
+                                crossfade_size_samples,
+                            other.data[channel_ii].end());
   }
 }
 

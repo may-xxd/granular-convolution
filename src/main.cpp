@@ -14,19 +14,20 @@ int main() {
 
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> grain_length_dist(22050, 88200);
-  std::uniform_int_distribution<> grain_pos_dist(44100 * 2, 44100 * 30);
+  std::uniform_real_distribution<> grain_length_dist(1.0, 5.0);
+  std::uniform_real_distribution<> grain_pos_dist(2.0, 70.0);
 
   constexpr size_t NUM_GRAINS = 2;
 
   for (size_t ii = 0; ii < 10; ii++) {
     std::vector<Signal> grains;
     for (size_t ii = 0; ii < NUM_GRAINS; ii++) {
-      size_t grain_start = seed_signal->data[0].size() - grain_pos_dist(gen);
-      size_t grain_length = grain_length_dist(gen);
+      float grain_start = seed_signal->get_length() - grain_pos_dist(gen);
+      float grain_length = grain_length_dist(gen);
 
       std::cout << "Length: " << seed_signal->data[0].size() << std::endl;
-      std::cout << "Start: " << grain_start << ", Size: " << grain_length << std::endl;
+      std::cout << "Start: " << grain_start << ", Size: " << grain_length
+                << std::endl;
 
       grains.push_back(seed_signal->slice(grain_start, grain_length));
     }
@@ -36,6 +37,7 @@ int main() {
       convolved_grains = convolved_grains.convolve(grains[ii]);
     }
 
+    //seed_signal->append_crossfade(convolved_grains, 0.1);
     seed_signal->append(convolved_grains);
   }
   std::ofstream ofstream("output.wav");

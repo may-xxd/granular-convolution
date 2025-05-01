@@ -7,9 +7,12 @@
 struct Signal {
   uint32_t sample_rate;
   std::vector<std::vector<float>> data;
-  Signal slice(size_t start, size_t size) const;
+  Signal slice(float start, float size) const;
   Signal convolve(const Signal &other) const;
   void append(const Signal &other);
+  void append_crossfade(const Signal &other, float crossfade_time);
+
+  float get_length() const;
 
   void write_to_wave(std::ostream &ostream) const;
 
