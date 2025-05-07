@@ -31,8 +31,7 @@ Signal Signal::slice(float start, float size) const {
   return ret;
 }
 
-float Signal::get_length() const
-{
+float Signal::get_length() const {
   return static_cast<float>(data[0].size()) / sample_rate;
 }
 
@@ -56,16 +55,30 @@ Signal Signal::convolve(const Signal &other) const {
     convolver.init(1024, channel.data(), channel.size());
     ret.data.push_back(std::vector<float>(other_channel.size()));
     convolver.process(other_channel.data(), ret.data.back().data(),
-                      other_channel.size());
+                      ret.data.back().size());
 
     float max = 0;
     for (size_t ii = 0; ii < ret.data.back().size(); ii++) {
-      if (ret.data.back()[ii] > max) {
+      if (std::abs(ret.data.back()[ii]) > max) {
         max = ret.data.back()[ii];
       }
     }
-    for (size_t ii = 0; ii < ret.data.back().size(); ii++) {
-      ret.data.back()[ii] /= max;
+
+    constexpr size_t ENVELOPE_LENGTH = 100;
+
+    if (max != 0.0f) {
+      // normalise to max, and also apply small envelope to start and end to
+      // avoid clicks
+      for (size_t ii = 0; ii < ret.data.back().size(); ii++) {
+        if (ii < ENVELOPE_LENGTH) {
+          ret.data.back()[ii] *= static_cast<float>(ii) / ENVELOPE_LENGTH;
+        } else if (ret.data.back().size() - ii < ENVELOPE_LENGTH) {
+          ret.data.back()[ii] *=
+              static_cast<float>(ret.data.back().size() - ii) / ENVELOPE_LENGTH;
+        }
+
+        ret.data.back()[ii] /= max;
+      }
     }
   }
 
@@ -102,13 +115,14 @@ void Signal::append_crossfade(const Signal &other, float crossfade_time) {
   for (size_t ii = 0; ii < crossfade_size_samples; ii++) {
     float crossfade_factor =
         static_cast<float>(ii) / static_cast<float>(crossfade_size_samples);
+
     for (size_t channel_ii = 0; channel_ii < data.size(); channel_ii++) {
       std::vector<float> &channel = data[channel_ii];
       const std::vector<float> &other_channel = other.data[channel_ii];
+
       if (ii < channel.size() && ii < other_channel.size()) {
-        channel[channel.size() - ii - 1] =
-            (1.0 - crossfade_factor) *
-                channel[channel.size() - crossfade_size_samples + ii] +
+        channel[channel.size() - crossfade_size_samples + ii] =
+            (1.0 - crossfade_factor) * channel[channel.size() - crossfade_size_samples + ii] +
             crossfade_factor * other_channel[ii];
       }
     }
@@ -162,7 +176,13 @@ void Signal::write_to_wave(std::ostream &ostream) const {
       if (sample_f < -1.0f) {
         sample_f = -1.0f;
       }
-      int16_t sample = static_cast<int16_t>(sample_f * 32768);
+      int32_t sample_32 = static_cast<int32_t>(sample_f * 32768);
+      int16_t sample = sample_32 >= 32767    ? 32767
+                       : sample_32 <= -32768 ? -32768
+                                             : sample_32;
+      // std::cout << "sample (f): " << sample_f << ", sample (32): " <<
+      // sample_32
+      //<< ", sample (16): " << sample << std::endl;
       Util::write_i16_le(ostream, sample);
     }
   }

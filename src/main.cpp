@@ -19,15 +19,15 @@ int main() {
 
   constexpr size_t NUM_GRAINS = 2;
 
-  for (size_t ii = 0; ii < 10; ii++) {
+  for (size_t ii = 0; ii < 100; ii++) {
     std::vector<Signal> grains;
     for (size_t ii = 0; ii < NUM_GRAINS; ii++) {
       float grain_start = seed_signal->get_length() - grain_pos_dist(gen);
       float grain_length = grain_length_dist(gen);
 
-      std::cout << "Length: " << seed_signal->data[0].size() << std::endl;
-      std::cout << "Start: " << grain_start << ", Size: " << grain_length
-                << std::endl;
+      // std::cout << "Length: " << seed_signal->data[0].size() << std::endl;
+      // std::cout << "Start: " << grain_start << ", Size: " << grain_length
+      //<< std::endl;
 
       grains.push_back(seed_signal->slice(grain_start, grain_length));
     }
@@ -37,8 +37,10 @@ int main() {
       convolved_grains = convolved_grains.convolve(grains[ii]);
     }
 
-    //seed_signal->append_crossfade(convolved_grains, 0.1);
-    seed_signal->append(convolved_grains);
+    seed_signal->append_crossfade(convolved_grains,
+                                  convolved_grains.get_length() / 2.0f);
+    // seed_signal->append(convolved_grains);
+    std::cout << "New length: " << seed_signal->get_length() << std::endl;
   }
   std::ofstream ofstream("output.wav");
   seed_signal->write_to_wave(ofstream);
