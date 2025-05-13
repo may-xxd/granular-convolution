@@ -60,7 +60,7 @@ Signal Signal::convolve(const Signal &other) const {
     float max = 0;
     for (size_t ii = 0; ii < ret.data.back().size(); ii++) {
       if (std::abs(ret.data.back()[ii]) > max) {
-        max = ret.data.back()[ii];
+        max = std::abs(ret.data.back()[ii]);
       }
     }
 

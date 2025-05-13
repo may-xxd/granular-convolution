@@ -4,7 +4,7 @@
 #include <random>
 
 int main() {
-  std::ifstream ifstream("res/sitting.wav");
+  std::ifstream ifstream("res/guitar.wav");
   std::optional<Signal> seed_signal = Signal::parse_from_wave(ifstream);
 
   if (!seed_signal) {
@@ -14,7 +14,7 @@ int main() {
 
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_real_distribution<> grain_length_dist(1.0, 5.0);
+  std::uniform_real_distribution<> grain_length_dist(1.0, 10.0);
   std::uniform_real_distribution<> grain_pos_dist(2.0, 70.0);
 
   constexpr size_t NUM_GRAINS = 2;
@@ -24,6 +24,11 @@ int main() {
     for (size_t ii = 0; ii < NUM_GRAINS; ii++) {
       float grain_start = seed_signal->get_length() - grain_pos_dist(gen);
       float grain_length = grain_length_dist(gen);
+
+      if (grain_start < 0.0)
+      {
+        grain_start = 0.0;
+      }
 
       // std::cout << "Length: " << seed_signal->data[0].size() << std::endl;
       // std::cout << "Start: " << grain_start << ", Size: " << grain_length
@@ -37,10 +42,12 @@ int main() {
       convolved_grains = convolved_grains.convolve(grains[ii]);
     }
 
-    seed_signal->append_crossfade(convolved_grains,
-                                  convolved_grains.get_length() / 2.0f);
-    // seed_signal->append(convolved_grains);
-    std::cout << "New length: " << seed_signal->get_length() << std::endl;
+    if (convolved_grains.get_length() > 0) {
+      seed_signal->append_crossfade(convolved_grains,
+                                    convolved_grains.get_length() / 2.0f);
+      // seed_signal->append(convolved_grains);
+      std::cout << "New length: " << seed_signal->get_length() << std::endl;
+    }
   }
   std::ofstream ofstream("output.wav");
   seed_signal->write_to_wave(ofstream);
