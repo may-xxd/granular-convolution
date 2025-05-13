@@ -5,15 +5,21 @@
 
 static constexpr uint16_t FORMAT_TAG_WAVE_FORMAT_PCM = 0x0001;
 
+Signal::Signal(uint32_t sample_rate, uint32_t num_channels) {
+  this->sample_rate = sample_rate;
+  for (uint32_t ii = 0; ii < num_channels; ii++) {
+    data.push_back(std::vector<float>());
+  }
+}
+
 Signal Signal::slice(float start, float size) const {
-  Signal ret;
-  ret.sample_rate = sample_rate;
+  Signal ret(sample_rate, data.size());
 
   size_t start_samples = start * sample_rate;
   size_t size_samples = size * sample_rate;
 
+  int channel_idx = 0;
   for (const auto &channel : data) {
-    ret.data.push_back(std::vector<float>());
 
     if (start_samples >= channel.size()) {
       continue;
@@ -23,9 +29,10 @@ Signal Signal::slice(float start, float size) const {
       size_samples = channel.size() - start_samples;
     }
 
-    ret.data.back() =
+    ret.data[channel_idx] =
         std::vector<float>(channel.begin() + start_samples,
                            channel.begin() + size_samples + start_samples);
+    channel_idx++;
   }
 
   return ret;
@@ -36,31 +43,32 @@ float Signal::get_length() const {
 }
 
 Signal Signal::convolve(const Signal &other) const {
-  Signal ret;
-  ret.sample_rate = sample_rate;
+  Signal ret(sample_rate, data.size());
 
   if (other.data.size() != data.size()) {
     std::cerr << "Unable to compute convolution, signals differ in number of "
                  "channels ("
               << data.size() << " and " << other.data.size() << ")"
               << std::endl;
+    // TODO: return std::nullopt here instead?
     return ret;
   }
 
   for (size_t channel_ii = 0; channel_ii < data.size(); channel_ii++) {
     const std::vector<float> &channel = data[channel_ii];
     const std::vector<float> &other_channel = other.data[channel_ii];
+    std::vector<float> &ret_channel = ret.data[channel_ii];
 
     fftconvolver::FFTConvolver convolver;
     convolver.init(1024, channel.data(), channel.size());
-    ret.data.push_back(std::vector<float>(other_channel.size()));
-    convolver.process(other_channel.data(), ret.data.back().data(),
-                      ret.data.back().size());
+    ret_channel = std::vector<float>(other_channel.size());
+    convolver.process(other_channel.data(), ret_channel.data(),
+                      ret_channel.size());
 
     float max = 0;
-    for (size_t ii = 0; ii < ret.data.back().size(); ii++) {
-      if (std::abs(ret.data.back()[ii]) > max) {
-        max = std::abs(ret.data.back()[ii]);
+    for (size_t ii = 0; ii < ret_channel.size(); ii++) {
+      if (std::abs(ret_channel[ii]) > max) {
+        max = std::abs(ret_channel[ii]);
       }
     }
 
@@ -69,15 +77,15 @@ Signal Signal::convolve(const Signal &other) const {
     if (max != 0.0f) {
       // normalise to max, and also apply small envelope to start and end to
       // avoid clicks
-      for (size_t ii = 0; ii < ret.data.back().size(); ii++) {
+      for (size_t ii = 0; ii < ret_channel.size(); ii++) {
         if (ii < ENVELOPE_LENGTH) {
-          ret.data.back()[ii] *= static_cast<float>(ii) / ENVELOPE_LENGTH;
-        } else if (ret.data.back().size() - ii < ENVELOPE_LENGTH) {
-          ret.data.back()[ii] *=
-              static_cast<float>(ret.data.back().size() - ii) / ENVELOPE_LENGTH;
+          ret_channel[ii] *= static_cast<float>(ii) / ENVELOPE_LENGTH;
+        } else if (ret_channel.size() - ii < ENVELOPE_LENGTH) {
+          ret_channel[ii] *=
+              static_cast<float>(ret_channel.size() - ii) / ENVELOPE_LENGTH;
         }
 
-        ret.data.back()[ii] /= max;
+        ret_channel[ii] /= max;
       }
     }
   }
@@ -111,6 +119,8 @@ void Signal::append_crossfade(const Signal &other, float crossfade_time) {
   }
 
   size_t crossfade_size_samples = crossfade_time * sample_rate;
+  crossfade_size_samples = std::min(
+      std::min(crossfade_size_samples, other.data[0].size()), data[0].size());
 
   for (size_t ii = 0; ii < crossfade_size_samples; ii++) {
     float crossfade_factor =
@@ -122,7 +132,8 @@ void Signal::append_crossfade(const Signal &other, float crossfade_time) {
 
       if (ii < channel.size() && ii < other_channel.size()) {
         channel[channel.size() - crossfade_size_samples + ii] =
-            (1.0 - crossfade_factor) * channel[channel.size() - crossfade_size_samples + ii] +
+            (1.0 - crossfade_factor) *
+                channel[channel.size() - crossfade_size_samples + ii] +
             crossfade_factor * other_channel[ii];
       }
     }
@@ -189,7 +200,7 @@ void Signal::write_to_wave(std::ostream &ostream) const {
 }
 
 std::optional<Signal> Signal::parse_from_wave(std::istream &wave_stream) {
-  Signal ret;
+  Signal ret(0, 0);
   char riff_chunk_id[4] = {0};
   wave_stream.read(riff_chunk_id, sizeof(riff_chunk_id));
 

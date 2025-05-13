@@ -3,8 +3,18 @@
 #include <iostream>
 #include <random>
 
-int main() {
-  std::ifstream ifstream("res/guitar.wav");
+void print_help() {
+  std::cout << "Usage: ./granular-convolution [wav_file]" << std::endl;
+}
+
+int main(int argc, char **argv) {
+
+  if (argc != 2) {
+    print_help();
+    return 1;
+  }
+
+  std::ifstream ifstream(argv[1]);
   std::optional<Signal> seed_signal = Signal::parse_from_wave(ifstream);
 
   if (!seed_signal) {
@@ -19,14 +29,15 @@ int main() {
 
   constexpr size_t NUM_GRAINS = 2;
 
+  Signal output_audio = *seed_signal;
+  Signal convolved_audio(output_audio.sample_rate, output_audio.data.size());
   for (size_t ii = 0; ii < 100; ii++) {
     std::vector<Signal> grains;
     for (size_t ii = 0; ii < NUM_GRAINS; ii++) {
       float grain_start = seed_signal->get_length() - grain_pos_dist(gen);
       float grain_length = grain_length_dist(gen);
 
-      if (grain_start < 0.0)
-      {
+      if (grain_start < 0.0) {
         grain_start = 0.0;
       }
 
@@ -45,10 +56,12 @@ int main() {
     if (convolved_grains.get_length() > 0) {
       seed_signal->append_crossfade(convolved_grains,
                                     convolved_grains.get_length() / 2.0f);
-      // seed_signal->append(convolved_grains);
+      convolved_audio.append_crossfade(convolved_grains,
+                                       convolved_grains.get_length() / 2.0f);
       std::cout << "New length: " << seed_signal->get_length() << std::endl;
     }
   }
+  output_audio.append_crossfade(convolved_audio, output_audio.get_length());
   std::ofstream ofstream("output.wav");
-  seed_signal->write_to_wave(ofstream);
+  output_audio.write_to_wave(ofstream);
 }

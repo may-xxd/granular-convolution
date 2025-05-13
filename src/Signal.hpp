@@ -5,6 +5,8 @@
 #include <optional>
 #include <vector>
 struct Signal {
+
+  Signal(uint32_t sample_rate, uint32_t num_channels);
   uint32_t sample_rate;
   std::vector<std::vector<float>> data;
   Signal slice(float start, float size) const;
