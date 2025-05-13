@@ -25,7 +25,6 @@ int main(int argc, char **argv) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> grain_length_dist(1.0, 10.0);
-  std::uniform_real_distribution<> grain_pos_dist(2.0, 70.0);
 
   constexpr size_t NUM_GRAINS = 2;
 
@@ -34,16 +33,14 @@ int main(int argc, char **argv) {
   for (size_t ii = 0; ii < 100; ii++) {
     std::vector<Signal> grains;
     for (size_t ii = 0; ii < NUM_GRAINS; ii++) {
-      float grain_start = seed_signal->get_length() - grain_pos_dist(gen);
       float grain_length = grain_length_dist(gen);
+      std::uniform_real_distribution<> grain_pos_dist(
+          grain_length, seed_signal->get_length());
+      float grain_start = seed_signal->get_length() - grain_pos_dist(gen);
 
-      if (grain_start < 0.0) {
-        grain_start = 0.0;
-      }
-
-      // std::cout << "Length: " << seed_signal->data[0].size() << std::endl;
-      // std::cout << "Start: " << grain_start << ", Size: " << grain_length
-      //<< std::endl;
+      std::cout << "Length: " << grain_length << std::endl;
+      std::cout << "Start: " << grain_start << ", Size: " << grain_length
+                << std::endl;
 
       grains.push_back(seed_signal->slice(grain_start, grain_length));
     }
