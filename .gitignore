@@ -1,4 +1,5 @@
 build/
+*.bmp
 .cache/
 res/
 compile_commands.json

@@ -288,3 +288,22 @@ std::optional<Signal> Signal::parse_from_wave(std::istream &wave_stream) {
 
   return ret;
 }
+
+void Signal::normalise() {
+  float max = 0.0f;
+  for (const auto &channel : data) {
+    for (size_t ii = 0; ii < channel.size(); ii++) {
+      if (std::abs(channel[ii]) > max) {
+        max = std::abs(channel[ii]);
+      }
+    }
+  }
+
+  if (max != 0.0f) {
+    for (auto &channel : data) {
+      for (size_t ii = 0; ii < channel.size(); ii++) {
+        channel[ii] /= max;
+      }
+    }
+  }
+}

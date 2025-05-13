@@ -1,4 +1,6 @@
+#include "Matrix.hpp"
 #include "Signal.hpp"
+#include "hilbert_curves.h"
 #include <fstream>
 #include <iostream>
 #include <random>
@@ -14,6 +16,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+
   std::ifstream ifstream(argv[1]);
   std::optional<Signal> seed_signal = Signal::parse_from_wave(ifstream);
 
@@ -21,6 +24,12 @@ int main(int argc, char **argv) {
     std::cerr << "Failed to parse signal from WAVE" << std::endl;
     return 1;
   }
+  seed_signal->normalise();
+
+  Matrix<128, 128> m(*seed_signal);
+  std::ofstream ofstream("output.bmp");
+  m.write_to_bitmap(ofstream);
+  /*
 
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -61,4 +70,5 @@ int main(int argc, char **argv) {
   output_audio.append_crossfade(convolved_audio, output_audio.get_length());
   std::ofstream ofstream("output.wav");
   output_audio.write_to_wave(ofstream);
+  */
 }

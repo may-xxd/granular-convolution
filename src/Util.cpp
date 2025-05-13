@@ -36,11 +36,11 @@ void write_i16_le(std::ostream &ostream, int16_t value) {
 }
 
 void write_i8_le(std::ostream &ostream, int8_t value) {
-  ostream.write(reinterpret_cast<char *>(value), sizeof(value));
+  ostream.write(reinterpret_cast<char *>(&value), sizeof(value));
 }
 
 void write_u8_le(std::ostream &ostream, uint8_t value) {
-  ostream.write(reinterpret_cast<char *>(value), sizeof(value));
+  ostream.write(reinterpret_cast<char *>(&value), sizeof(value));
 }
 
 uint32_t read_u32_le(std::istream &istream) {

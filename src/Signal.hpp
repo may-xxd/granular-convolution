@@ -18,5 +18,7 @@ struct Signal {
 
   void write_to_wave(std::ostream &ostream) const;
 
+  void normalise();
+
   static std::optional<Signal> parse_from_wave(std::istream &wave_stream);
 };
