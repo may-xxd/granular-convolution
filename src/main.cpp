@@ -27,8 +27,8 @@ int main(int argc, char **argv) {
   seed_signal->normalise();
 
   Matrix<128, 128> m(*seed_signal);
-  std::ofstream ofstream("output.bmp");
-  m.write_to_bitmap(ofstream);
+  std::ofstream ofstream("output.tga");
+  m.write_to_tga(ofstream);
   /*
 
   std::random_device rd;

@@ -41,37 +41,40 @@ template <size_t WIDTH, size_t HEIGHT> struct Matrix {
 
   Matrix(const Signal &signal) {
     size_t order = std::ceil(std::log2(std::max(WIDTH, HEIGHT)));
+    size_t num_samples = signal.data[0].size();
+    size_t max_hilbert_index = hilbertXYToIndex(order, WIDTH - 1, 0) + 1;
 
     for (size_t yy = 0; yy < HEIGHT; yy++) {
       for (size_t xx = 0; xx < WIDTH; xx++) {
         size_t ii = hilbertXYToIndex(order, xx, yy);
+        size_t sample_index =
+            (static_cast<float>(ii) / static_cast<float>(max_hilbert_index)) *
+            num_samples;
 
-        if (ii >= signal.data[0].size()) {
+        if (sample_index >= signal.data[0].size()) {
           data[yy][xx] = 0.0f;
         } else {
-          data[yy][xx] = signal.data[0][ii];
+          data[yy][xx] = signal.data[0][sample_index];
         }
       }
     }
   }
 
-  void write_to_bitmap(std::ostream &ostream) const {
-    ostream.write("BM", 2);
-    uint32_t file_size = 12 + 14 + WIDTH * HEIGHT;
-    Util::write_u32_le(ostream, file_size);
+  void write_to_tga(std::ostream &ostream) const {
+    Util::write_u8_le(ostream, 0);
+    Util::write_u8_le(ostream, 0);
+    Util::write_u8_le(ostream, 3);
 
-    // reserved
     Util::write_u16_le(ostream, 0);
     Util::write_u16_le(ostream, 0);
+    Util::write_u8_le(ostream, 0);
 
-    Util::write_u32_le(ostream, 12 + 14);
-
-    // dib header
-    Util::write_u32_le(ostream, 12);
+    Util::write_u16_le(ostream, 0);
+    Util::write_u16_le(ostream, 0);
     Util::write_u16_le(ostream, WIDTH);
     Util::write_u16_le(ostream, HEIGHT);
-    Util::write_u16_le(ostream, 1);
-    Util::write_u16_le(ostream, 8);
+    Util::write_u8_le(ostream, 8);
+    Util::write_u8_le(ostream, 0b100000);
 
     for (size_t yy = 0; yy < HEIGHT; yy++) {
       for (size_t xx = 0; xx < WIDTH; xx++) {
@@ -83,7 +86,6 @@ template <size_t WIDTH, size_t HEIGHT> struct Matrix {
           sample_32 = 0;
         }
         uint8_t sample = sample_32;
-        std::cout << data[yy][xx] << ", " << sample_32 << std::endl;
         Util::write_u8_le(ostream, sample);
       }
     }
